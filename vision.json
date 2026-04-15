@@ -1,0 +1,83 @@
+{
+  "meta": {
+    "createdAt": "2026-04-14T00:00:00Z",
+    "updatedAt": "2026-04-14T00:00:00Z",
+    "version": "1.0",
+    "plaidVersion": "1.0"
+  },
+  "creator": {
+    "name": "Christian",
+    "expertise": "Software development — building apps with Claude Code and Cursor IDE",
+    "background": "Christian is a hands-on developer who builds with AI-assisted tooling. He regularly uses dual/extended monitor setups and repeatedly hit the same friction point: Windows' built-in Win+Alt+R shortcut records whatever screen the active window is on, with no way to pre-select a specific monitor. Existing solutions like OBS are too heavy for simple recordings, and Bandicam is paid and still requires UI overhead every time. Christian decided to build the tool he wished existed — a dead-simple tray utility that remembers your preferred monitor and records it instantly, every time."
+  },
+  "purpose": {
+    "whoYouHelp": "Anyone on Windows with a dual or extended monitor setup who wants to record a specific screen without fiddling with settings each time — developers, remote workers, streamers, content creators, and gamers",
+    "problemYouSolve": "Windows' built-in screen recording shortcut (Win+Alt+R) doesn't let you pre-select which monitor to record on a dual/extended setup — it captures whatever screen has the active window. Existing alternatives are either too heavyweight (OBS Studio) or paid with UI overhead (Bandicam). Nobody has built a lightweight, always-in-background tray utility that simply remembers which monitor you want to record and starts instantly with a hotkey.",
+    "desiredTransformation": "Before: The user opens a heavy app, clicks through menus to select the right monitor, then starts recording — or accidentally records the wrong screen with Win+Alt+R. After: The user presses a hotkey and SnapScreen silently starts recording exactly the monitor they configured once. Zero friction. Every time.",
+    "whyYou": "Christian lives this problem daily as a developer on a dual-monitor setup. He knows what good feels like and what bad friction feels like. Building with Claude Code and Cursor means he can move from idea to working app quickly, and he has the technical depth to handle Windows-native screen capture APIs via Electron."
+  },
+  "product": {
+    "name": "SnapScreen",
+    "oneLiner": "SnapScreen lets you pick which monitor to record, then start and stop with a single hotkey — nothing else to think about.",
+    "howItWorks": "The user installs SnapScreen and it sits silently in the Windows system tray. They right-click the tray icon once to choose which monitor they want to record. From that point on, pressing the hotkey (default: Win+Shift+R) starts recording that specific monitor immediately. Pressing it again stops recording and saves an MP4 to their chosen output folder. No app windows to open, no monitor selections to redo, no surprises.",
+    "keyCapabilities": [
+      "System tray presence — always available, never in the way",
+      "One-time monitor selection — pick Display 1 or Display 2 (or however many you have), and it remembers",
+      "Global hotkey start/stop recording — default Win+Shift+R, fully customizable",
+      "Single-monitor capture on dual/extended display — records only the selected screen, not all of them",
+      "Local MP4 output — saves recordings to a user-defined folder with timestamp-based filenames"
+    ],
+    "platform": "desktop",
+    "marketDifferentiation": "Unlike OBS Studio (powerful but overkill, heavy setup) and Xbox Game Bar (no monitor pre-selection) and Bandicam (paid, requires UI interaction each session), SnapScreen is a zero-config tray utility that stays out of your way until you need it. You configure your monitor once, and every subsequent recording just works with a hotkey.",
+    "magicMoment": "The user is in a meeting or about to record a tutorial. They press Win+Shift+R. SnapScreen immediately starts recording exactly the monitor they set up — no wrong screen, no menus, no clicking. They press the hotkey again to stop. The MP4 is waiting in their folder."
+  },
+  "audience": {
+    "primaryUser": "Alex, 31, developer or remote worker using a dual-monitor Windows setup. One screen is for their work (IDE, browser, app), the other is for reference or communication. They frequently need to record tutorials, bug reports, or meeting walkthroughs — but Win+Alt+R keeps capturing the wrong screen, and they don't want to open OBS just to record 90 seconds of content. They want something that just works.",
+    "secondaryUsers": [
+      "Content creators and YouTubers who record tutorials or software walkthroughs on a specific monitor and need a quick capture without disrupting their workflow",
+      "Remote workers and consultants who regularly record their screen for async updates, onboarding videos, or client demos and want the simplest possible tool",
+      "Gamers and streamers who use SnapScreen as a quick-capture fallback when their primary streaming setup isn't running"
+    ],
+    "currentAlternatives": "Xbox Game Bar (Win+Alt+R) — built-in, free, but captures whichever screen has the active window with no monitor pre-selection. OBS Studio — free, powerful, but heavy (200MB+), requires scene configuration per monitor, overkill for casual recording. Bandicam — supports monitor selection but is paid ($39+), has UI overhead on every session. ShareX — free, open-source, extremely feature-rich but complex to configure. 'Just living with it' — many users accept recording the wrong screen and cropping in post.",
+    "frustrations": "Every option is either too heavy and complex (OBS, ShareX) or doesn't solve the core problem (Xbox Game Bar). Bandicam gets close but costs money and still requires you to open the app and pick your monitor each time rather than remembering it. The fundamental frustration is that no tool treats 'I always want to record Monitor 2' as a first-class, persistent preference — you're always one bad click away from recording the wrong screen."
+  },
+  "business": {
+    "revenueModel": "freemium",
+    "initialGoal": "Validate the core recording feature with 10–20 installs from friends, family, and colleagues within 90 days. Collect qualitative feedback on reliability, hotkey UX, and what pro features people ask for most.",
+    "sixMonthVision": "500+ downloads from organic discovery (GitHub, Reddit r/windows, developer Twitter/X). Introduce a Pro tier ($9 one-time or $3/month) with features like GIF export, custom output folder per monitor, webcam overlay, and recording history. First 20 paying users.",
+    "constraints": "Building solo, part-time, alongside other projects. No dedicated budget — relying on free tiers for tooling. Building with Claude Code and Cursor accelerates development significantly. Windows-only for now; Mac support deferred until Windows version is validated.",
+    "goToMarket": "Start with friends, family, and colleagues for the first validation round. Then share on GitHub as an open-source or source-available project. Post to Reddit (r/windows, r/screencapture, r/gamedev, r/remotework). Build in public on Twitter/X tagging the developer tools community. Aim for a Product Hunt launch once the core experience is polished."
+  },
+  "feeling": {
+    "brandPersonality": "Clean, friendly, and quietly capable. SnapScreen is the tool that doesn't ask anything of you — it just does exactly what you set it up to do. Like a well-organized desk drawer: everything is exactly where you expect it, nothing extra. Approachable enough that non-developers feel comfortable installing it, polished enough that developers trust it.",
+    "visualMood": "Windows 11 Fluent Design meets minimal productivity tool — soft rounded corners, subtle depth/shadows, clean typography. Light mode as default with dark mode support. Think: something that feels at home sitting next to Windows' own system tray apps. Not flashy, not corporate. Comfortable and modern.",
+    "toneOfVoice": "Simple, helpful, conversational. Talks like a developer friend who set something up for you. Tray notifications are brief and informative. Error messages tell you what happened and what to do next, not just an error code. Success states are quiet — the tool doesn't celebrate itself.",
+    "antiPatterns": "Never feel like enterprise software — no feature-bloated settings panels, no mandatory account creation, no 'upgrade to unlock basic features' gates on the core recording function. Never feel heavy or slow — if it takes more than 1 second to start recording after the hotkey, something is wrong. Never be intrusive — no unsolicited popups, no telemetry without consent, no splash screens."
+  },
+  "techStack": {
+    "appType": "desktop",
+    "frontend": {
+      "choice": "Electron + TypeScript + React",
+      "rationale": "Cross-platform desktop foundation with mature ecosystem, best-in-class Claude Code/Cursor support, proven for system tray utilities, straightforward Mac port later. React handles the settings UI; Electron main process handles native OS integration."
+    },
+    "backend": {
+      "choice": "Electron main process (Node.js)",
+      "rationale": "Local-only app — no cloud backend needed. The Electron main process handles all OS-level operations: tray icon, hotkey registration, screen capture via FFmpeg child process, and file system access. Keeps the app lean and offline-first."
+    },
+    "database": {
+      "choice": "electron-store",
+      "rationale": "Lightweight local JSON storage for persisting user preferences (selected monitor index, hotkey binding, output folder path). Zero setup, TypeScript-friendly, exactly the right tool for a local settings store."
+    },
+    "auth": {
+      "choice": "None",
+      "rationale": "Local utility app — no user accounts, no sign-in required for MVP. The app works entirely offline and locally. Auth can be added later if a cloud sync or license validation feature is introduced."
+    },
+    "payments": {
+      "choice": "None",
+      "rationale": "Free for MVP — validating with friends and family first. Polar will be integrated in a post-validation Pro tier update to handle one-time purchase or subscription for pro features."
+    }
+  },
+  "tooling": {
+    "codingAgent": "cursor"
+  }
+}

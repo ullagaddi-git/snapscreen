@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Color Tokens */
+  --color-primary:          #0078D4;
+  --color-primary-hover:    #106EBE;
+  --color-secondary:        #005A9E;
+  --color-recording:        #C42B1C;
+  --color-background:       #F3F3F3;
+  --color-surface:          #FFFFFF;
+  --color-surface-elevated: #FAFAFA;
+  --color-text:             #1A1A1A;
+  --color-text-muted:       #6B6B6B;
+  --color-border:           #E0E0E0;
+  --color-success:          #107C10;
+  --color-warning:          #797673;
+  --color-error:            #C42B1C;
+
+  /* Typography Tokens */
+  --font-heading: 'Segoe UI Variable', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body:    'Segoe UI Variable', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    'Cascadia Code', Consolas, 'Courier New', monospace;
+
+  --text-xs:    0.6875rem;  /* 11px */
+  --text-sm:    0.75rem;    /* 12px */
+  --text-base:  0.875rem;   /* 14px */
+  --text-lg:    1rem;       /* 16px */
+  --text-xl:    1.125rem;   /* 18px */
+  --text-2xl:   1.25rem;    /* 20px */
+
+  --leading-tight:   1.2;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.6;
+
+  /* Spacing Tokens */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --shadow-panel: 0 2px 8px rgba(0,0,0,0.08);
+
+  --transition-fast:   150ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow:   300ms ease-in-out;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background:       #202020;
+    --color-surface:          #2D2D2D;
+    --color-surface-elevated: #383838;
+    --color-text:             #F3F3F3;
+    --color-text-muted:       #9D9D9D;
+    --color-border:           #3A3A3A;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text);
+  background-color: var(--color-background);
+}
