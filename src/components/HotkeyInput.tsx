@@ -37,6 +37,7 @@ function keyEventToAccelerator(e: React.KeyboardEvent): string | null {
 export default function HotkeyInput({ value, onChange, disabled }: Props) {
   const [capturing, setCapturing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleClick = () => {
@@ -58,8 +59,10 @@ export default function HotkeyInput({ value, onChange, disabled }: Props) {
       onChange(accelerator)
       setCapturing(false)
       setError(null)
+      setWarning(result.conflict ? `May conflict with ${result.conflict}` : null)
     } else {
-      setError("This key combination can't be registered.")
+      setError(result.conflict || "This key combination can't be registered.")
+      setWarning(null)
     }
   }
 
@@ -100,6 +103,7 @@ export default function HotkeyInput({ value, onChange, disabled }: Props) {
         </button>
       </div>
       {error && <p className="text-error text-xs mt-1">{error}</p>}
+      {warning && !error && <p className="text-warning text-xs mt-1">{warning}</p>}
     </div>
   )
 }

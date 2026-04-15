@@ -56,25 +56,51 @@ export function registerIpcHandlers(): void {
     return { isRecording: isRecording() }
   })
 
+  // TASK-038: Known hotkey conflicts for common apps
+  const knownConflicts: Record<string, string> = {
+    'CommandOrControl+Shift+R': 'Chrome/Edge (hard reload)',
+    'CommandOrControl+Shift+I': 'Chrome/Edge (DevTools)',
+    'CommandOrControl+Shift+P': 'VS Code (Command Palette)',
+    'CommandOrControl+Shift+F': 'VS Code/Slack (Search)',
+    'CommandOrControl+Shift+E': 'VS Code (Explorer)',
+    'CommandOrControl+Shift+M': 'VS Code (Problems panel)',
+    'CommandOrControl+Shift+S': 'VS Code (Save All)',
+    'Alt+Shift+F': 'VS Code (Format document)',
+  }
+
   ipcMain.handle('hotkey:validate', async (_event, accelerator: string) => {
     if (!accelerator || accelerator.length === 0) {
-      return { valid: false }
+      return { valid: false, conflict: null }
     }
-    // Check if already registered by another app
+
+    // Check known conflicts
+    const conflict = knownConflicts[accelerator] || null
+
+    // Check if already registered by us
     if (globalShortcut.isRegistered(accelerator)) {
-      return { valid: true } // We own it
+      return { valid: true, conflict }
     }
-    // Try to register temporarily to see if it works
+    // Try to register temporarily
     try {
       const ok = globalShortcut.register(accelerator, () => {})
       if (ok) {
         globalShortcut.unregister(accelerator)
-        return { valid: true }
+        return { valid: true, conflict }
       }
-      return { valid: false }
+      return { valid: false, conflict: 'Hotkey is in use by another application' }
     } catch {
-      return { valid: false }
+      return { valid: false, conflict: 'Hotkey could not be registered' }
     }
+  })
+
+  ipcMain.handle('audio:testSource', async (_event, source: string) => {
+    const { detectAvailableAudioDevices } = require('./recorder')
+    const devices = detectAvailableAudioDevices()
+    if (source === 'none') return { available: true, devices }
+    if (devices.length === 0) {
+      return { available: false, reason: 'No audio devices detected', devices }
+    }
+    return { available: true, devices }
   })
 
   ipcMain.handle('app:getVersion', async () => {

@@ -2,6 +2,7 @@ import { spawn, ChildProcess, execSync } from 'child_process'
 import path from 'path'
 import fs from 'fs'
 import { app } from 'electron'
+import dayjs from 'dayjs'
 import { DisplayInfo } from './monitors'
 import { getSettings } from './settings'
 
@@ -36,6 +37,10 @@ export function getFfmpegPath(): string {
 }
 
 // --- Audio device detection ---
+
+export function detectAvailableAudioDevices(): string[] {
+  return detectAudioDevices()
+}
 
 function detectAudioDevices(): string[] {
   if (cachedAudioDevices) return cachedAudioDevices
@@ -80,8 +85,23 @@ export function onUnexpectedExit(callback: (partialFile: string | null) => void)
 
 // --- Recording state ---
 
+let recordingStartTime: number | null = null
+
 export function isRecording(): boolean {
   return ffmpegProcess !== null
+}
+
+export function getRecordingStartTime(): number | null {
+  return recordingStartTime
+}
+
+export function getRecordingDuration(): string {
+  if (!recordingStartTime) return '00:00:00'
+  const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000)
+  const hours = String(Math.floor(elapsed / 3600)).padStart(2, '0')
+  const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0')
+  const seconds = String(elapsed % 60).padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
 }
 
 // --- Output file naming (TASK-017) ---
@@ -100,15 +120,12 @@ function generateOutputPath(): string {
     throw new Error(`Output folder is not writable: ${folder}`)
   }
 
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  const hours = String(now.getHours()).padStart(2, '0')
-  const minutes = String(now.getMinutes()).padStart(2, '0')
-  const seconds = String(now.getSeconds()).padStart(2, '0')
-
-  const baseName = `SnapScreen_${year}-${month}-${day}_${hours}${minutes}${seconds}`
+  // TASK-040: Custom filename pattern using dayjs
+  const dateFormat = settings.filenameDateFormat || 'YYYY-MM-DD_HHmmss'
+  const dateStr = dayjs().format(dateFormat)
+  // Sanitize: remove characters invalid in Windows filenames
+  const safeDateStr = dateStr.replace(/[<>:"/\\|?*]/g, '-')
+  const baseName = `SnapScreen_${safeDateStr}`
   let outputPath = path.join(folder, `${baseName}.mp4`)
 
   // Handle duplicate filenames
@@ -177,6 +194,7 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
 
   return new Promise((resolve, reject) => {
     isExpectedStop = false
+    recordingStartTime = Date.now()
     ffmpegProcess = spawn(ffmpegPath, args, { shell: false })
     currentOutputPath = outputPath
     currentTmpPath = tmpPath
@@ -231,6 +249,7 @@ export async function stopRecording(): Promise<string> {
   }
 
   isExpectedStop = true
+  recordingStartTime = null
   const outputPath = currentOutputPath!
   const tmpPath = currentTmpPath!
 
