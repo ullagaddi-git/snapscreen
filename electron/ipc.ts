@@ -1,5 +1,7 @@
 import { ipcMain, dialog, shell, app } from 'electron'
 import { getSettings, setSetting, SnapScreenSettings } from './settings'
+import { listMonitors } from './monitors'
+import { isRecording } from './recorder'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('settings:get', async () => {
@@ -16,8 +18,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('monitors:list', async () => {
-    // Stub — will be implemented in Phase 1
-    return []
+    return listMonitors()
   })
 
   ipcMain.handle('dialog:openFolder', async () => {
@@ -35,8 +36,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('recording:getState', async () => {
-    // Stub — will be implemented in Phase 1
-    return { isRecording: false }
+    return { isRecording: isRecording() }
   })
 
   ipcMain.handle('hotkey:validate', async (_event, accelerator: string) => {
