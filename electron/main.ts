@@ -22,10 +22,11 @@ export function openSettingsWindow(): void {
 
   settingsWindow = new BrowserWindow({
     width: 480,
-    height: 480,
+    height: 520,
     resizable: false,
     alwaysOnTop: true,
     title: 'SnapScreen Settings',
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
