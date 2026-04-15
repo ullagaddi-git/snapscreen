@@ -45,10 +45,13 @@ export function openSettingsWindow(): void {
   })
 }
 
-// --- Hotkey handler ---
+// --- Toggle recording (used by hotkey and tray menu) ---
 
-async function onHotkeyPress(): Promise<void> {
+export async function toggleRecording(): Promise<void> {
+  console.log('=== TOGGLE RECORDING ===')
+  console.log('isRecording:', isRecording())
   const settings = getSettings()
+  console.log('selectedDisplayId:', settings.selectedDisplayId)
 
   if (!isRecording()) {
     // --- Start recording ---
@@ -132,16 +135,38 @@ app.whenReady().then(() => {
   registerIpcHandlers()
   createTray()
 
-  // Register global hotkey
+  // Register global hotkey — try the configured one, fallback to Alt+Shift+R
   const settings = getSettings()
-  const registered = globalShortcut.register(settings.hotkeyAccelerator, onHotkeyPress)
-  if (registered) {
-    console.log('Global hotkey registered:', settings.hotkeyAccelerator)
+  // Avoid function keys (HP Hotkey Support intercepts them)
+  const hotkeysToTry = ['CommandOrControl+Alt+R', 'Alt+Shift+R', settings.hotkeyAccelerator]
+  let registeredHotkey: string | null = null
+
+  for (const hotkey of hotkeysToTry) {
+    try {
+      const registered = globalShortcut.register(hotkey, toggleRecording)
+      if (registered && globalShortcut.isRegistered(hotkey)) {
+        console.log('Global hotkey registered successfully:', hotkey)
+        registeredHotkey = hotkey
+        break
+      } else {
+        console.warn('Hotkey registration returned false:', hotkey)
+        globalShortcut.unregister(hotkey)
+      }
+    } catch (err) {
+      console.warn('Hotkey registration threw error:', hotkey, err)
+    }
+  }
+
+  if (registeredHotkey) {
+    new Notification({
+      title: 'SnapScreen Ready',
+      body: `Press ${registeredHotkey} to start/stop recording.`,
+    }).show()
   } else {
-    console.error('Failed to register global hotkey:', settings.hotkeyAccelerator)
+    console.error('Failed to register any global hotkey')
     new Notification({
       title: 'SnapScreen — Hotkey Error',
-      body: `Could not register hotkey ${settings.hotkeyAccelerator}. It may be in use by another application.`,
+      body: 'Could not register any hotkey. Other apps may be blocking it.',
     }).show()
   }
 })

@@ -1,8 +1,9 @@
 import { Tray, Menu, app, nativeImage, MenuItemConstructorOptions } from 'electron'
 import path from 'path'
-import { openSettingsWindow } from './main'
+import { openSettingsWindow, toggleRecording } from './main'
 import { listMonitors } from './monitors'
 import { getSettings, setSetting } from './settings'
+import { isRecording } from './recorder'
 
 let tray: Tray | null = null
 
@@ -33,7 +34,16 @@ function buildContextMenu(): Menu {
     }))
   }
 
+  const recording = isRecording()
+
   return Menu.buildFromTemplate([
+    {
+      label: recording ? '⏹ Stop Recording' : '⏺ Start Recording',
+      click: (): void => {
+        toggleRecording()
+      }
+    },
+    { type: 'separator' },
     {
       label: 'Select Monitor',
       submenu: monitorSubmenu

@@ -5,6 +5,9 @@ import { app } from 'electron'
 import { DisplayInfo } from './monitors'
 import { getSettings } from './settings'
 
+// Cached audio devices
+let cachedAudioDevices: string[] | null = null
+
 type AudioSource = 'system' | 'mic' | 'both' | 'none'
 
 let ffmpegProcess: ChildProcess | null = null
@@ -27,6 +30,43 @@ export function getFfmpegPath(): string {
     return ffmpegStatic
   } catch {
     throw new Error('FFmpeg binary not found. Ensure ffmpeg-static is installed.')
+  }
+}
+
+// --- Audio device detection ---
+
+function detectAudioDevices(): string[] {
+  if (cachedAudioDevices) return cachedAudioDevices
+
+  try {
+    const ffmpegPath = getFfmpegPath()
+    const output = execSync(`"${ffmpegPath}" -list_devices true -f dshow -i dummy 2>&1`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+      shell: true,
+    })
+
+    const audioDevices: string[] = []
+    const lines = output.split('\n')
+    let inAudio = false
+    for (const line of lines) {
+      if (line.includes('(audio)')) {
+        // Extract device name between quotes
+        const match = line.match(/"([^"]+)"/)
+        if (match) {
+          audioDevices.push(match[1])
+          inAudio = true
+        }
+      }
+    }
+
+    cachedAudioDevices = audioDevices
+    console.log('Detected audio devices:', audioDevices)
+    return audioDevices
+  } catch {
+    console.warn('Failed to detect audio devices')
+    cachedAudioDevices = []
+    return []
   }
 }
 
@@ -96,9 +136,13 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
     '-i', 'desktop',
   ]
 
-  // Audio capture
-  if (audioSource === 'system' || audioSource === 'both') {
-    args.push('-f', 'dshow', '-i', 'audio=virtual-audio-capturer')
+  // Audio capture — detect available devices
+  if (audioSource !== 'none') {
+    const audioDevices = detectAudioDevices()
+    if (audioDevices.length > 0) {
+      // Use the first available audio device (typically the microphone)
+      args.push('-f', 'dshow', '-i', `audio=${audioDevices[0]}`)
+    }
   }
 
   // Video encoding — use libx264 ultrafast for broad compatibility
@@ -108,9 +152,12 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
     '-pix_fmt', 'yuv420p',
   )
 
-  // Audio encoding
-  if (audioSource !== 'none') {
+  // Audio encoding if we added an audio input
+  const hasAudioInput = args.includes('-f') && args.indexOf('dshow') > args.indexOf('desktop')
+  if (hasAudioInput) {
     args.push('-c:a', 'aac')
+  } else {
+    args.push('-an')
   }
 
   args.push('-y', tmpPath)
