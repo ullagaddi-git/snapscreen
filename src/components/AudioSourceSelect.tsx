@@ -13,6 +13,7 @@ const options = [
 export default function AudioSourceSelect({ value, onChange }: Props) {
   return (
     <select
+      aria-label="Audio source"
       value={value}
       onChange={(e) => onChange(e.target.value as Props['value'])}
       className="w-full h-8 px-2 text-base border border-border rounded-md bg-surface

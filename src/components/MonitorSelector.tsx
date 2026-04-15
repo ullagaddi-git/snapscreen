@@ -29,6 +29,7 @@ export default function MonitorSelector({ selectedId, onChange, disabled }: Prop
 
   return (
     <select
+      aria-label="Recording monitor"
       value={selectedId ?? ''}
       onChange={(e) => {
         const id = Number(e.target.value)

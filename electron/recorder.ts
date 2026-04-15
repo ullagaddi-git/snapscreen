@@ -13,6 +13,8 @@ type AudioSource = 'system' | 'mic' | 'both' | 'none'
 let ffmpegProcess: ChildProcess | null = null
 let currentOutputPath: string | null = null
 let currentTmpPath: string | null = null
+let isExpectedStop = false
+let unexpectedExitCallback: ((partialFile: string | null) => void) | null = null
 
 // --- FFmpeg path resolution ---
 
@@ -68,6 +70,12 @@ function detectAudioDevices(): string[] {
     cachedAudioDevices = []
     return []
   }
+}
+
+// --- Crash callback registration (TASK-030) ---
+
+export function onUnexpectedExit(callback: (partialFile: string | null) => void): void {
+  unexpectedExitCallback = callback
 }
 
 // --- Recording state ---
@@ -162,16 +170,19 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
 
   args.push('-y', tmpPath)
 
+  // TASK-035: Performance target — recording start latency < 1000ms from trigger to first frame
   console.log('Starting FFmpeg:', ffmpegPath, args.join(' '))
 
+  const startTime = performance.now()
+
   return new Promise((resolve, reject) => {
+    isExpectedStop = false
     ffmpegProcess = spawn(ffmpegPath, args, { shell: false })
     currentOutputPath = outputPath
     currentTmpPath = tmpPath
 
     ffmpegProcess.stderr?.on('data', (data: Buffer) => {
       const msg = data.toString()
-      // FFmpeg outputs progress info to stderr — only log errors
       if (msg.includes('Error') || msg.includes('error')) {
         console.error('FFmpeg error:', msg)
       }
@@ -185,8 +196,21 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
       reject(err)
     })
 
+    // TASK-030: Handle unexpected FFmpeg crash
     ffmpegProcess.on('exit', (code) => {
-      console.log('FFmpeg exited with code:', code)
+      const latency = performance.now() - startTime
+      console.log(`FFmpeg exited with code: ${code} (after ${Math.round(latency)}ms)`)
+
+      if (!isExpectedStop && code !== 0) {
+        // Unexpected crash
+        const partialFile = currentTmpPath
+        ffmpegProcess = null
+        currentOutputPath = null
+        currentTmpPath = null
+        if (unexpectedExitCallback) {
+          unexpectedExitCallback(partialFile)
+        }
+      }
       ffmpegProcess = null
     })
 
@@ -206,6 +230,7 @@ export async function stopRecording(): Promise<string> {
     throw new Error('No recording in progress')
   }
 
+  isExpectedStop = true
   const outputPath = currentOutputPath!
   const tmpPath = currentTmpPath!
 
@@ -224,7 +249,7 @@ export async function stopRecording(): Promise<string> {
       currentOutputPath = null
       currentTmpPath = null
 
-      // Atomic rename: tmp → final
+      // TASK-031: Atomic rename with detailed error handling
       try {
         if (fs.existsSync(tmpPath)) {
           fs.renameSync(tmpPath, outputPath)
@@ -234,7 +259,8 @@ export async function stopRecording(): Promise<string> {
           reject(new Error('Recording file not found after FFmpeg exit'))
         }
       } catch (err) {
-        reject(err)
+        const folder = path.dirname(outputPath)
+        reject(new Error(`Couldn't save recording to ${folder} — check folder permissions.`))
       }
     })
 
@@ -242,7 +268,6 @@ export async function stopRecording(): Promise<string> {
     if (proc.stdin?.writable) {
       proc.stdin.write('q')
     } else {
-      // Fallback: send SIGINT
       proc.kill('SIGINT')
     }
   })

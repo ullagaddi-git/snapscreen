@@ -77,3 +77,16 @@ body {
   color: var(--color-text);
   background-color: var(--color-background);
 }
+
+/* Accessibility: visible focus indicators */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+select:focus-visible,
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}

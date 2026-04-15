@@ -4,6 +4,7 @@
 module.exports = {
   appId: 'com.snapscreen.app',
   productName: 'SnapScreen',
+  copyright: 'Copyright © 2026',
   directories: {
     output: 'dist',
     buildResources: 'assets'
@@ -18,7 +19,8 @@ module.exports = {
   },
   nsis: {
     oneClick: false,
-    allowToChangeInstallationDirectory: true
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: false
   },
   extraResources: [
     {

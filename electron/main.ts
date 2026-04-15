@@ -1,10 +1,10 @@
 import { app, BrowserWindow, globalShortcut, Notification, shell } from 'electron'
 import path from 'path'
-import { getSettings } from './settings'
+import { getSettings, setSetting } from './settings'
 import { createTray, setTrayState } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { listMonitors } from './monitors'
-import { startRecording, stopRecording, isRecording, verifyFfmpeg } from './recorder'
+import { startRecording, stopRecording, isRecording, verifyFfmpeg, onUnexpectedExit } from './recorder'
 
 // Hide dock icon on macOS (no-op on Windows, but safe)
 app.dock?.hide()
@@ -56,11 +56,21 @@ export async function toggleRecording(): Promise<void> {
 
   if (!isRecording()) {
     // --- Start recording ---
+
+    // TASK-028: No monitor selected
+    if (settings.selectedDisplayId === null) {
+      new Notification({
+        title: 'SnapScreen',
+        body: 'Please select a monitor first. Right-click the tray icon.',
+      }).show()
+      return
+    }
+
     // Find the selected display
     let display = listMonitors().find(m => m.id === settings.selectedDisplayId)
 
+    // TASK-029: Selected monitor disconnected — fall back to primary
     if (!display) {
-      // No monitor selected or selected monitor disconnected — fall back to primary
       const primary = listMonitors().find(m => m.isPrimary)
       if (!primary) {
         new Notification({
@@ -71,14 +81,14 @@ export async function toggleRecording(): Promise<void> {
         return
       }
 
-      if (settings.selectedDisplayId !== null) {
-        // Previously selected monitor is gone — notify user
-        new Notification({
-          title: 'SnapScreen',
-          body: `${settings.selectedDisplayLabel} not found — using primary display.`,
-        }).show()
-      }
+      new Notification({
+        title: 'SnapScreen',
+        body: `${settings.selectedDisplayLabel} not found — using primary display.`,
+      }).show()
 
+      // Update settings to the fallback
+      setSetting('selectedDisplayId', primary.id)
+      setSetting('selectedDisplayLabel', primary.label)
       display = primary
     }
 
@@ -133,8 +143,28 @@ app.whenReady().then(() => {
   // Verify FFmpeg is available
   verifyFfmpeg()
 
+  // TASK-030: Handle unexpected FFmpeg crashes
+  onUnexpectedExit((partialFile) => {
+    setTrayState('idle')
+    new Notification({
+      title: 'SnapScreen — Error',
+      body: 'Recording stopped unexpectedly. A partial file may have been saved.',
+    }).show()
+    console.error('FFmpeg crashed unexpectedly. Partial file:', partialFile)
+  })
+
   registerIpcHandlers()
   createTray()
+
+  // TASK-027: First-run onboarding notification
+  const currentSettings = getSettings()
+  if (currentSettings.isFirstRun) {
+    new Notification({
+      title: 'SnapScreen is running',
+      body: 'Right-click the tray icon to choose your recording monitor.',
+    }).show()
+    setSetting('isFirstRun', false)
+  }
 
   // Register global hotkey — try the configured one, fallback to Alt+Shift+R
   const settings = getSettings()
