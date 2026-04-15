@@ -25,6 +25,11 @@ module.exports = {
       from: 'assets',
       to: 'assets',
       filter: ['**/*']
+    },
+    {
+      from: 'node_modules/ffmpeg-static',
+      to: 'ffmpeg-static',
+      filter: ['ffmpeg.exe']
     }
   ]
 }

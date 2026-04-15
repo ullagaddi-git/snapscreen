@@ -1,8 +1,10 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, globalShortcut, Notification, shell } from 'electron'
 import path from 'path'
 import { getSettings } from './settings'
-import { createTray } from './tray'
+import { createTray, setTrayState } from './tray'
 import { registerIpcHandlers } from './ipc'
+import { listMonitors } from './monitors'
+import { startRecording, stopRecording, isRecording, verifyFfmpeg } from './recorder'
 
 // Hide dock icon on macOS (no-op on Windows, but safe)
 app.dock?.hide()
@@ -43,13 +45,109 @@ export function openSettingsWindow(): void {
   })
 }
 
+// --- Hotkey handler ---
+
+async function onHotkeyPress(): Promise<void> {
+  const settings = getSettings()
+
+  if (!isRecording()) {
+    // --- Start recording ---
+    // Find the selected display
+    let display = listMonitors().find(m => m.id === settings.selectedDisplayId)
+
+    if (!display) {
+      // No monitor selected or selected monitor disconnected — fall back to primary
+      const primary = listMonitors().find(m => m.isPrimary)
+      if (!primary) {
+        new Notification({
+          title: 'SnapScreen',
+          body: 'No monitors detected. Cannot start recording.',
+        }).show()
+        setTrayState('error')
+        return
+      }
+
+      if (settings.selectedDisplayId !== null) {
+        // Previously selected monitor is gone — notify user
+        new Notification({
+          title: 'SnapScreen',
+          body: `${settings.selectedDisplayLabel} not found — using primary display.`,
+        }).show()
+      }
+
+      display = primary
+    }
+
+    try {
+      await startRecording(display, settings.audioSource)
+      setTrayState('recording')
+      console.log('Recording started on:', display.label)
+    } catch (err) {
+      console.error('Failed to start recording:', err)
+      setTrayState('error')
+      new Notification({
+        title: 'SnapScreen — Error',
+        body: `Failed to start recording: ${err instanceof Error ? err.message : String(err)}`,
+      }).show()
+    }
+  } else {
+    // --- Stop recording ---
+    try {
+      const savedPath = await stopRecording()
+      setTrayState('idle')
+      console.log('Recording saved:', savedPath)
+
+      // Show notification (TASK-018)
+      if (settings.showNotificationOnSave) {
+        const filename = path.basename(savedPath)
+        const folder = path.dirname(savedPath)
+        const notification = new Notification({
+          title: 'Recording saved',
+          body: filename,
+        })
+        notification.on('click', () => {
+          shell.openPath(folder)
+        })
+        notification.show()
+      }
+    } catch (err) {
+      console.error('Failed to stop recording:', err)
+      setTrayState('error')
+      new Notification({
+        title: 'SnapScreen — Error',
+        body: `Failed to save recording: ${err instanceof Error ? err.message : String(err)}`,
+      }).show()
+    }
+  }
+}
+
+// --- App lifecycle ---
+
 app.whenReady().then(() => {
   console.log('SnapScreen settings:', JSON.stringify(getSettings(), null, 2))
+
+  // Verify FFmpeg is available
+  verifyFfmpeg()
 
   registerIpcHandlers()
   createTray()
 
-  // No BrowserWindow on launch — tray-only app
+  // Register global hotkey
+  const settings = getSettings()
+  const registered = globalShortcut.register(settings.hotkeyAccelerator, onHotkeyPress)
+  if (registered) {
+    console.log('Global hotkey registered:', settings.hotkeyAccelerator)
+  } else {
+    console.error('Failed to register global hotkey:', settings.hotkeyAccelerator)
+    new Notification({
+      title: 'SnapScreen — Hotkey Error',
+      body: `Could not register hotkey ${settings.hotkeyAccelerator}. It may be in use by another application.`,
+    }).show()
+  }
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {
