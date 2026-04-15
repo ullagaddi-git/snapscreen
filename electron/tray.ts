@@ -3,7 +3,7 @@ import path from 'path'
 import { openSettingsWindow, toggleRecording } from './main'
 import { listMonitors } from './monitors'
 import { getSettings, setSetting } from './settings'
-import { isRecording } from './recorder'
+import { isRecording, getRecordingDuration } from './recorder'
 
 let tray: Tray | null = null
 
@@ -80,8 +80,16 @@ export function createTray(): Tray {
   return tray
 }
 
+let durationInterval: ReturnType<typeof setInterval> | null = null
+
 export function setTrayState(state: 'idle' | 'recording' | 'error'): void {
   if (!tray) return
+
+  // Clear any existing duration polling
+  if (durationInterval) {
+    clearInterval(durationInterval)
+    durationInterval = null
+  }
 
   switch (state) {
     case 'idle':
@@ -90,7 +98,13 @@ export function setTrayState(state: 'idle' | 'recording' | 'error'): void {
       break
     case 'recording':
       tray.setImage(nativeImage.createFromPath(getAssetPath('tray-recording.ico')))
-      tray.setToolTip('SnapScreen — Recording in progress')
+      tray.setToolTip('SnapScreen — Recording: 00:00:00')
+      // TASK-037: Update tooltip with elapsed time every second
+      durationInterval = setInterval(() => {
+        if (tray && isRecording()) {
+          tray.setToolTip(`SnapScreen — Recording: ${getRecordingDuration()}`)
+        }
+      }, 1000)
       break
     case 'error':
       tray.setImage(nativeImage.createFromPath(getAssetPath('tray-error.ico')))

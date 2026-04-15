@@ -110,6 +110,23 @@ function App(): JSX.Element {
           />
         </section>
 
+        <section className="mt-6">
+          <label className="text-sm text-muted uppercase tracking-wider block pb-2">
+            Filename Pattern
+          </label>
+          <input
+            type="text"
+            value={settings.filenameDateFormat}
+            onChange={(e) => setSetting('filenameDateFormat', e.target.value)}
+            className="w-full h-8 px-2 text-base font-mono border border-border rounded-md bg-surface
+                       focus:border-primary focus:outline-none"
+            placeholder="YYYY-MM-DD_HHmmss"
+          />
+          <p className="text-muted text-xs mt-1">
+            Preview: SnapScreen_{settings.filenameDateFormat || 'YYYY-MM-DD_HHmmss'}.mp4
+          </p>
+        </section>
+
         {/* Divider */}
         <hr className="my-6 border-border" />
 
