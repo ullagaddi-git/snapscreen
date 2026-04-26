@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SnapScreen Widget</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { overflow: hidden; background: transparent; }
+      body {
+        font-family: 'Segoe UI Variable', 'Inter', sans-serif;
+        user-select: none;
+      }
+      .container {
+        background: rgba(30, 30, 30, 0.95);
+        border-radius: 24px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        -webkit-app-region: drag;
+      }
+      .btn {
+        -webkit-app-region: no-drag;
+        background: #0078D4;
+        border: none;
+        color: white;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 11px;
+        transition: all 0.15s ease;
+      }
+      .btn:hover {
+        transform: scale(1.1);
+        filter: brightness(1.15);
+      }
+      .btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .btn:disabled:hover {
+        transform: none;
+        filter: none;
+      }
+      .btn-record { background: #C42B1C; }
+      .btn-pause { background: #F0AD4E; color: #000; }
+      .btn-stop { background: #555; }
+      .btn-start { background: #107C10; }
+      .duration {
+        color: white;
+        font-family: 'Cascadia Code', monospace;
+        font-size: 12px;
+        min-width: 56px;
+        text-align: center;
+        -webkit-app-region: drag;
+      }
+      .recording-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #C42B1C;
+        margin-right: 4px;
+        animation: blink 1s ease-in-out infinite;
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      .icon { width: 14px; height: 14px; fill: currentColor; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <span class="duration" id="duration">
+        <span id="dot" class="recording-dot" style="display:none"></span><span id="time">--:--</span>
+      </span>
+      <button id="btn-record" class="btn btn-record" onclick="startRec()" title="Start recording">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/></svg>
+      </button>
+      <button id="btn-pause" class="btn btn-pause" onclick="pauseRec()" title="Pause recording" style="display:none">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+      </button>
+      <button id="btn-resume" class="btn btn-start" onclick="resumeRec()" title="Resume recording" style="display:none">
+        <svg class="icon" viewBox="0 0 24 24"><polygon points="6,4 20,12 6,20"/></svg>
+      </button>
+      <button id="btn-stop" class="btn btn-stop" onclick="stopRec()" title="Stop recording" style="display:none">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+    </div>
+    <script>
+      async function startRec() {
+        if (window.snapscreen) await window.snapscreen.startRecording();
+        await poll();
+      }
+      async function stopRec() {
+        if (window.snapscreen) await window.snapscreen.stopRecording();
+        await poll();
+      }
+      async function pauseRec() {
+        if (window.snapscreen) await window.snapscreen.pauseRecording();
+        await poll();
+      }
+      async function resumeRec() {
+        if (window.snapscreen) await window.snapscreen.resumeRecording();
+        await poll();
+      }
+
+      async function poll() {
+        if (!window.snapscreen) return;
+        const state = await window.snapscreen.getRecordingState();
+        const isRec = state.isRecording;
+        const isPaused = state.isPaused;
+        const dur = state.duration || '--:--';
+
+        document.getElementById('time').textContent = dur;
+        document.getElementById('dot').style.display = isRec && !isPaused ? 'inline-block' : 'none';
+
+        // Show/hide buttons based on state
+        const showBtn = (id, show) => {
+          document.getElementById(id).style.display = show ? 'flex' : 'none';
+        };
+
+        if (!isRec && !isPaused) {
+          // IDLE: only Record button
+          showBtn('btn-record', true);
+          showBtn('btn-pause', false);
+          showBtn('btn-resume', false);
+          showBtn('btn-stop', false);
+        } else if (isRec && !isPaused) {
+          // RECORDING: Pause + Stop
+          showBtn('btn-record', false);
+          showBtn('btn-pause', true);
+          showBtn('btn-resume', false);
+          showBtn('btn-stop', true);
+        } else if (isPaused) {
+          // PAUSED: Resume + Stop
+          showBtn('btn-record', false);
+          showBtn('btn-pause', false);
+          showBtn('btn-resume', true);
+          showBtn('btn-stop', true);
+        }
+      }
+
+      setInterval(poll, 500);
+      poll();
+    </script>
+  </body>
+</html>

@@ -4,7 +4,8 @@ import { getSettings, setSetting } from './settings'
 import { createTray, setTrayState } from './tray'
 import { registerIpcHandlers } from './ipc'
 import { listMonitors } from './monitors'
-import { startRecording, stopRecording, isRecording, verifyFfmpeg, onUnexpectedExit } from './recorder'
+import { startRecording, stopRecording, isRecording, verifyFfmpeg, onUnexpectedExit, getRecordingDuration, pauseRecording, resumeRecording, isRecordingPaused } from './recorder'
+import { registerWidgetIpc } from './widget'
 
 // Hide dock icon on macOS (no-op on Windows, but safe)
 app.dock?.hide()
@@ -44,6 +45,32 @@ export function openSettingsWindow(): void {
   settingsWindow.on('closed', () => {
     settingsWindow = null
   })
+}
+
+// Widget management is in ./widget.ts
+
+// --- Recording control functions ---
+
+export async function startRecordingFromUI(): Promise<void> {
+  if (isRecording()) return
+  await toggleRecording()
+}
+
+export async function stopRecordingFromUI(): Promise<void> {
+  if (!isRecording()) return
+  await toggleRecording()
+}
+
+export async function pauseRecordingFromUI(): Promise<void> {
+  if (!isRecording()) throw new Error('No recording to pause')
+  await pauseRecording()
+  setTrayState('idle')
+}
+
+export async function resumeRecordingFromUI(): Promise<void> {
+  if (!isRecordingPaused()) throw new Error('No paused recording to resume')
+  await resumeRecording()
+  setTrayState('recording')
 }
 
 // --- Toggle recording (used by hotkey and tray menu) ---
@@ -154,6 +181,15 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers()
+  registerWidgetIpc({
+    startRecording: startRecordingFromUI,
+    stopRecording: stopRecordingFromUI,
+    pauseRecording: pauseRecordingFromUI,
+    resumeRecording: resumeRecordingFromUI,
+    isRecording,
+    isPaused: isRecordingPaused,
+    getRecordingDuration,
+  })
   createTray()
 
   // TASK-027: First-run onboarding notification

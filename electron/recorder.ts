@@ -16,6 +16,11 @@ let currentOutputPath: string | null = null
 let currentTmpPath: string | null = null
 let isExpectedStop = false
 let unexpectedExitCallback: ((partialFile: string | null) => void) | null = null
+let isPaused = false
+let pausedDisplay: DisplayInfo | null = null
+let pausedAudioSource: AudioSource | null = null
+let currentDisplay: DisplayInfo | null = null
+let currentAudioSource: AudioSource | null = null
 
 // --- FFmpeg path resolution ---
 
@@ -45,33 +50,37 @@ export function detectAvailableAudioDevices(): string[] {
 function detectAudioDevices(): string[] {
   if (cachedAudioDevices) return cachedAudioDevices
 
+  // FFmpeg -list_devices ALWAYS exits with code 1 (it's expected behavior)
+  // and writes the device list to stderr. We need spawnSync to capture stderr properly.
   try {
+    const { spawnSync } = require('child_process')
     const ffmpegPath = getFfmpegPath()
-    const output = execSync(`"${ffmpegPath}" -list_devices true -f dshow -i dummy 2>&1`, {
+    const result = spawnSync(ffmpegPath, ['-list_devices', 'true', '-f', 'dshow', '-i', 'dummy'], {
       encoding: 'utf-8',
       timeout: 5000,
-      shell: true,
+      shell: false,
     })
+
+    // Combine stdout + stderr (FFmpeg outputs to stderr)
+    const output = (result.stdout || '') + (result.stderr || '')
 
     const audioDevices: string[] = []
     const lines = output.split('\n')
-    let inAudio = false
     for (const line of lines) {
       if (line.includes('(audio)')) {
         // Extract device name between quotes
         const match = line.match(/"([^"]+)"/)
         if (match) {
           audioDevices.push(match[1])
-          inAudio = true
         }
       }
     }
 
     cachedAudioDevices = audioDevices
-    console.log('Detected audio devices:', audioDevices)
+    console.log('Detected audio devices:', audioDevices.length, audioDevices)
     return audioDevices
-  } catch {
-    console.warn('Failed to detect audio devices')
+  } catch (err) {
+    console.warn('Failed to detect audio devices:', err)
     cachedAudioDevices = []
     return []
   }
@@ -93,6 +102,31 @@ export function isRecording(): boolean {
 
 export function getRecordingStartTime(): number | null {
   return recordingStartTime
+}
+
+export function isRecordingPaused(): boolean {
+  return isPaused
+}
+
+export async function pauseRecording(): Promise<void> {
+  if (!ffmpegProcess) {
+    throw new Error('No recording in progress')
+  }
+  // Save the current display/audio settings so we can resume
+  pausedDisplay = currentDisplay
+  pausedAudioSource = currentAudioSource
+  await stopRecording()
+  isPaused = true
+}
+
+export async function resumeRecording(): Promise<void> {
+  if (!isPaused || !pausedDisplay || !pausedAudioSource) {
+    throw new Error('No paused recording to resume')
+  }
+  isPaused = false
+  await startRecording(pausedDisplay, pausedAudioSource)
+  pausedDisplay = null
+  pausedAudioSource = null
 }
 
 export function getRecordingDuration(): string {
@@ -144,6 +178,10 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
   if (ffmpegProcess) {
     throw new Error('Recording is already in progress')
   }
+
+  // Track for pause/resume support
+  currentDisplay = display
+  currentAudioSource = audioSource
 
   const ffmpegPath = getFfmpegPath()
   const outputPath = generateOutputPath()

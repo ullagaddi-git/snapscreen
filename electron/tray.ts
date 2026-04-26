@@ -1,9 +1,10 @@
 import { Tray, Menu, app, nativeImage, MenuItemConstructorOptions } from 'electron'
 import path from 'path'
-import { openSettingsWindow, toggleRecording } from './main'
+import { openSettingsWindow, toggleRecording, pauseRecordingFromUI, resumeRecordingFromUI } from './main'
+import { openWidget, closeWidget, isWidgetOpen } from './widget'
 import { listMonitors } from './monitors'
 import { getSettings, setSetting } from './settings'
-import { isRecording, getRecordingDuration } from './recorder'
+import { isRecording, getRecordingDuration, isRecordingPaused } from './recorder'
 
 let tray: Tray | null = null
 
@@ -35,18 +36,50 @@ function buildContextMenu(): Menu {
   }
 
   const recording = isRecording()
+  const paused = isRecordingPaused()
+
+  const recordingMenuItems: MenuItemConstructorOptions[] = []
+  if (paused) {
+    recordingMenuItems.push({
+      label: '▶ Resume Recording',
+      click: (): void => { resumeRecordingFromUI() }
+    })
+    recordingMenuItems.push({
+      label: '⏹ Stop Recording',
+      click: (): void => { toggleRecording() }
+    })
+  } else if (recording) {
+    recordingMenuItems.push({
+      label: '⏸ Pause Recording',
+      click: (): void => { pauseRecordingFromUI() }
+    })
+    recordingMenuItems.push({
+      label: '⏹ Stop Recording',
+      click: (): void => { toggleRecording() }
+    })
+  } else {
+    recordingMenuItems.push({
+      label: '⏺ Start Recording',
+      click: (): void => { toggleRecording() }
+    })
+  }
 
   return Menu.buildFromTemplate([
-    {
-      label: recording ? '⏹ Stop Recording' : '⏺ Start Recording',
-      click: (): void => {
-        toggleRecording()
-      }
-    },
+    ...recordingMenuItems,
     { type: 'separator' },
     {
       label: 'Select Monitor',
       submenu: monitorSubmenu
+    },
+    {
+      label: isWidgetOpen() ? 'Hide Record Widget' : 'Show Record Widget',
+      click: (): void => {
+        if (isWidgetOpen()) {
+          closeWidget()
+        } else {
+          openWidget()
+        }
+      }
     },
     {
       label: 'Settings',

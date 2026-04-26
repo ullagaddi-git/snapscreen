@@ -1,6 +1,6 @@
 {
   "name": "snapscreen",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Record the screen you mean to record. Nothing else.",
   "main": "./out/main/main.js",
   "scripts": {
