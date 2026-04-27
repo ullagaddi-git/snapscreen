@@ -5,6 +5,7 @@ import { app } from 'electron'
 import dayjs from 'dayjs'
 import { DisplayInfo } from './monitors'
 import { getSettings } from './settings'
+import { startSystemAudioCapture, stopSystemAudioCapture } from './audio-capture'
 
 // Cached audio devices
 let cachedAudioDevices: string[] | null = null
@@ -21,6 +22,7 @@ let pausedDisplay: DisplayInfo | null = null
 let pausedAudioSource: AudioSource | null = null
 let currentDisplay: DisplayInfo | null = null
 let currentAudioSource: AudioSource | null = null
+let currentSystemAudioPath: string | null = null
 
 // --- FFmpeg path resolution ---
 
@@ -199,25 +201,31 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
     '-i', 'desktop',
   ]
 
-  // Audio capture — detect available devices
-  if (audioSource !== 'none') {
+  // Audio capture — three FFmpeg-driven modes; system audio handled separately
+  // Modes:
+  //   'none'   → video only
+  //   'mic'    → FFmpeg captures microphone via dshow
+  //   'system' → FFmpeg video only; system audio captured by hidden window
+  //   'both'   → FFmpeg captures mic; system audio captured separately, mixed on stop
+  let micAttached = false
+  if (audioSource === 'mic' || audioSource === 'both') {
     const audioDevices = detectAudioDevices()
     if (audioDevices.length > 0) {
-      // Use the first available audio device (typically the microphone)
       args.push('-f', 'dshow', '-i', `audio=${audioDevices[0]}`)
+      micAttached = true
+    } else {
+      console.warn('No microphone device detected — falling back to video-only')
     }
   }
 
-  // Video encoding — use libx264 ultrafast for broad compatibility
+  // Video encoding
   args.push(
     '-c:v', 'libx264',
     '-preset', 'ultrafast',
     '-pix_fmt', 'yuv420p',
   )
 
-  // Audio encoding if we added an audio input
-  const hasAudioInput = args.includes('-f') && args.indexOf('dshow') > args.indexOf('desktop')
-  if (hasAudioInput) {
+  if (micAttached) {
     args.push('-c:a', 'aac')
   } else {
     args.push('-an')
@@ -270,12 +278,80 @@ export async function startRecording(display: DisplayInfo, audioSource: AudioSou
       ffmpegProcess = null
     })
 
-    // Give FFmpeg a moment to start, then resolve
-    setTimeout(() => {
-      if (ffmpegProcess) {
-        resolve()
+    // Give FFmpeg a moment to start
+    setTimeout(async () => {
+      if (!ffmpegProcess) return
+
+      // Start system audio capture if requested
+      if (audioSource === 'system' || audioSource === 'both') {
+        try {
+          const audioPath = tmpPath.replace('.tmp.mp4', '.audio.webm')
+          await startSystemAudioCapture(display.id, audioPath)
+          currentSystemAudioPath = audioPath
+          console.log('System audio capture started:', audioPath)
+        } catch (err) {
+          console.error('System audio capture failed:', err)
+          // Continue with video-only
+          currentSystemAudioPath = null
+        }
       }
+
+      resolve()
     }, 500)
+  })
+}
+
+// --- Mux helper: combine video file with separately-recorded system audio ---
+
+async function muxVideoAndAudio(
+  videoPath: string,
+  systemAudioPath: string,
+  outputPath: string,
+  hasMicInVideo: boolean
+): Promise<void> {
+  const ffmpegPath = getFfmpegPath()
+  const args: string[] = [
+    '-i', videoPath,
+    '-i', systemAudioPath,
+  ]
+
+  if (hasMicInVideo) {
+    // Both: mix mic (from video file) with system audio
+    args.push(
+      '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=longest[a]',
+      '-map', '0:v',
+      '-map', '[a]',
+      '-c:v', 'copy',
+      '-c:a', 'aac',
+    )
+  } else {
+    // System audio only: replace audio track
+    args.push(
+      '-map', '0:v',
+      '-map', '1:a',
+      '-c:v', 'copy',
+      '-c:a', 'aac',
+      '-shortest',
+    )
+  }
+
+  args.push('-y', outputPath)
+
+  console.log('Muxing:', ffmpegPath, args.join(' '))
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(ffmpegPath, args, { shell: false })
+    let stderr = ''
+    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    proc.on('exit', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        console.error('Mux failed:', stderr)
+        reject(new Error(`Mux failed with code ${code}`))
+      }
+    })
+    proc.on('error', reject)
   })
 }
 
@@ -290,6 +366,9 @@ export async function stopRecording(): Promise<string> {
   recordingStartTime = null
   const outputPath = currentOutputPath!
   const tmpPath = currentTmpPath!
+  const systemAudioPath = currentSystemAudioPath
+  const audioSource = currentAudioSource
+  currentSystemAudioPath = null
 
   return new Promise((resolve, reject) => {
     const proc = ffmpegProcess!
@@ -300,21 +379,49 @@ export async function stopRecording(): Promise<string> {
       proc.kill('SIGKILL')
     }, 5000)
 
-    proc.on('exit', () => {
+    proc.on('exit', async () => {
       clearTimeout(killTimeout)
       ffmpegProcess = null
       currentOutputPath = null
       currentTmpPath = null
 
-      // TASK-031: Atomic rename with detailed error handling
       try {
-        if (fs.existsSync(tmpPath)) {
-          fs.renameSync(tmpPath, outputPath)
-          console.log('Recording saved:', outputPath)
-          resolve(outputPath)
-        } else {
+        if (!fs.existsSync(tmpPath)) {
           reject(new Error('Recording file not found after FFmpeg exit'))
+          return
         }
+
+        // Stop system audio capture if it was running
+        if (systemAudioPath) {
+          try {
+            await stopSystemAudioCapture()
+          } catch (err) {
+            console.error('Failed to stop system audio capture:', err)
+          }
+        }
+
+        // If we have a system audio file, mux it with the video
+        if (systemAudioPath && fs.existsSync(systemAudioPath) && fs.statSync(systemAudioPath).size > 1000) {
+          try {
+            const muxedPath = tmpPath.replace('.tmp.mp4', '.muxed.mp4')
+            await muxVideoAndAudio(tmpPath, systemAudioPath, muxedPath, audioSource === 'both')
+            // Clean up source files, rename muxed to final
+            try { fs.unlinkSync(tmpPath) } catch {}
+            try { fs.unlinkSync(systemAudioPath) } catch {}
+            fs.renameSync(muxedPath, outputPath)
+            console.log('Recording saved (with system audio):', outputPath)
+            resolve(outputPath)
+            return
+          } catch (muxErr) {
+            console.error('Mux failed, saving video without system audio:', muxErr)
+            // Fall through to save video only
+          }
+        }
+
+        // No system audio (or mux failed) — just rename video
+        fs.renameSync(tmpPath, outputPath)
+        console.log('Recording saved:', outputPath)
+        resolve(outputPath)
       } catch (err) {
         const folder = path.dirname(outputPath)
         reject(new Error(`Couldn't save recording to ${folder} — check folder permissions.`))

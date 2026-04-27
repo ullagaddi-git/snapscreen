@@ -3,14 +3,17 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import { copyFileSync, mkdirSync, existsSync } from 'fs'
 
-function copyWidget() {
+function copyHtmlFiles() {
   try {
     mkdirSync('out/renderer', { recursive: true })
     if (existsSync('src/widget.html')) {
       copyFileSync('src/widget.html', 'out/renderer/widget.html')
     }
+    if (existsSync('src/audio-capture.html')) {
+      copyFileSync('src/audio-capture.html', 'out/renderer/audio-capture.html')
+    }
   } catch (e) {
-    console.warn('widget copy failed:', e)
+    console.warn('html copy failed:', e)
   }
 }
 
@@ -19,9 +22,9 @@ export default defineConfig({
     plugins: [
       externalizeDepsPlugin({ exclude: ['electron-store', 'dayjs'] }),
       {
-        name: 'copy-widget-html',
-        buildStart() { copyWidget() },
-        closeBundle() { copyWidget() }
+        name: 'copy-html',
+        buildStart() { copyHtmlFiles() },
+        closeBundle() { copyHtmlFiles() }
       }
     ],
     build: {
@@ -38,7 +41,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           preload: resolve(__dirname, 'electron/preload.ts'),
-          'widget-preload': resolve(__dirname, 'electron/widget-preload.ts')
+          'widget-preload': resolve(__dirname, 'electron/widget-preload.ts'),
+          'audio-capture-preload': resolve(__dirname, 'electron/audio-capture-preload.ts')
         }
       }
     }
@@ -47,9 +51,9 @@ export default defineConfig({
     plugins: [
       react(),
       {
-        name: 'copy-widget-html-renderer',
-        buildStart() { copyWidget() },
-        closeBundle() { copyWidget() }
+        name: 'copy-html-renderer',
+        buildStart() { copyHtmlFiles() },
+        closeBundle() { copyHtmlFiles() }
       }
     ],
     root: '.',

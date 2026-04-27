@@ -4,10 +4,10 @@ interface Props {
 }
 
 const options = [
-  { value: 'system', label: 'System Audio' },
-  { value: 'mic', label: 'Microphone' },
-  { value: 'both', label: 'Both' },
-  { value: 'none', label: 'None' },
+  { value: 'system', label: 'System Audio (videos, meetings)' },
+  { value: 'mic', label: 'Microphone (your voice)' },
+  { value: 'both', label: 'Both (microphone + system)' },
+  { value: 'none', label: 'None (video only)' },
 ] as const
 
 export default function AudioSourceSelect({ value, onChange }: Props) {

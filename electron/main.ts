@@ -167,6 +167,14 @@ export async function toggleRecording(): Promise<void> {
 app.whenReady().then(() => {
   console.log('SnapScreen settings:', JSON.stringify(getSettings(), null, 2))
 
+  // Allow getUserMedia with chromeMediaSource:desktop for system audio loopback
+  const { session, desktopCapturer } = require('electron')
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer.getSources({ types: ['screen'] }).then((sources: { id: string; name: string }[]) => {
+      callback({ video: sources[0], audio: 'loopback' })
+    })
+  })
+
   // Verify FFmpeg is available
   verifyFfmpeg()
 
